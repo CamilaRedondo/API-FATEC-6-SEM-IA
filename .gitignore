@@ -1,0 +1,19 @@
+venv
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Ambientes virtuais
+venv/
+env/
+*.env
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Outros
+.DS_Store
