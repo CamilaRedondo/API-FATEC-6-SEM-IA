@@ -7,3 +7,4 @@ pip install langchain-huggingface
 pip install bs4
 pip install -qU langchain-groq
 pip install python-dotenv
+pip install pandas
