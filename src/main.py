@@ -15,21 +15,24 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_chroma import Chroma
+from util import dir_management
 
 # %%
 load_dotenv()
-os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGCHAIN_TRACING_V2")
-os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
-os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+os.environ['LANGCHAIN_TRACING_V2'] = os.getenv('LANGCHAIN_TRACING_V2')
+os.environ['LANGCHAIN_API_KEY'] = os.getenv('LANGCHAIN_API_KEY')
+os.environ['GROQ_API_KEY'] = os.getenv('GROQ_API_KEY')
+os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
 llm = ChatGroq(model="llama3-8b-8192")
 nltk.download('stopwords')
 nlp = spacy.load('pt_core_news_sm')
 stop_words = set(stopwords.words('portuguese'))
 csv_columns = ['product_name', 'site_category_lv2',
-                    'overall_rating', 'recommend_to_a_friend', 'review_text']
+               'overall_rating', 'recommend_to_a_friend', 'review_text']
 
 # %%
+
+
 def clean_text(text):
     text = text.lower()
     text = re.sub(r'\s+', ' ', text).strip()
@@ -52,11 +55,12 @@ def remove_accents(text):
 
 
 def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
+    return '\n\n'.join(doc.page_content for doc in docs)
+
 
 # %%
 rows_number = 500  # Define quantas rows do csv serão utilizadas no RAG
-df = pd.read_csv(r'.\B2W-Reviews.csv')
+df = pd.read_csv('../B2W-Reviews.csv')
 df_reduced = df.drop(
     columns=[col for col in df.columns if col not in csv_columns])
 for column in csv_columns:
@@ -67,24 +71,28 @@ for column in csv_columns:
         lambda x: remove_accents(str(x)))
     df_reduced[column] = df_reduced[column].apply(
         lambda x: remove_stop_words(str(x)))
-new_df = df_reduced.head(rows_number).to_csv(
-    rf'C:\Projetos\Testes_IA\API-FATEC-6-SEM-IA\out\B2W-Reviews-top{rows_number}.csv')
+
+result_file_name = f'B2W-Reviews-top{rows_number}.csv'
+new_df = df_reduced.head(rows_number).to_csv(os.path.join
+                                             (dir_management.get_out_dir(),
+                                              result_file_name))
 
 # %%
-loader = CSVLoader(file_path=rf'C:\Projetos\Testes_IA\API-FATEC-6-SEM-IA\out\B2W-Reviews-top{rows_number}.csv',
+loader = CSVLoader(file_path=os.path.join(dir_management.get_out_dir(),
+                                          result_file_name),
                    encoding='utf-8',
                    csv_args={
                        'delimiter': ',',
                        'quotechar': '"',
                        'fieldnames': csv_columns
-                   })
+})
 
 docs = loader.load()
 
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000, chunk_overlap=200)
 splits = text_splitter.split_documents(docs)
-model_name = "sentence-transformers/all-MiniLM-L6-v2"
+model_name = 'sentence-transformers/all-MiniLM-L6-v2'
 model_kwargs = {'device': 'cpu'}
 encode_kwargs = {'normalize_embeddings': False}
 hf = HuggingFaceEmbeddings(
@@ -96,17 +104,17 @@ vectorstore = Chroma.from_documents(
     documents=splits, embedding=hf)
 
 retriever = vectorstore.as_retriever()
-prompt = hub.pull("rlm/rag-prompt")
+prompt = hub.pull('rlm/rag-prompt')
 
 rag_chain = (
-    {"context": retriever |
-        format_docs, "question": RunnablePassthrough()}
+    {'context': retriever |
+        format_docs, 'question': RunnablePassthrough()}
     | prompt
     | llm
     | StrOutputParser()
 )
 
 rag_chain.invoke(
-    "Pode me indicar bons smartphones? Responda em português do Brasil")
+    'Pode me indicar bons smartphones? Responda em português do Brasil')
 
 # %%
