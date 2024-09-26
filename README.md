@@ -8,3 +8,5 @@ pip install bs4
 pip install -qU langchain-groq
 pip install python-dotenv
 pip install pandas
+pip install datasets spacy textblob nltk
+python -m spacy download pt_core_news_sm
