@@ -59,7 +59,7 @@ def format_docs(docs):
 
 
 # %%
-rows_number = 500  # Define quantas rows do csv serão utilizadas no RAG
+rows_number = 5000  # Define quantas rows do csv serão utilizadas no RAG
 df = pd.read_csv('../B2W-Reviews.csv')
 df_reduced = df.drop(
     columns=[col for col in df.columns if col not in csv_columns])
@@ -106,6 +106,7 @@ vectorstore = Chroma.from_documents(
 retriever = vectorstore.as_retriever()
 prompt = hub.pull('rlm/rag-prompt')
 
+# %%
 rag_chain = (
     {'context': retriever |
         format_docs, 'question': RunnablePassthrough()}
