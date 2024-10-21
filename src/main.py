@@ -25,9 +25,19 @@ os.environ['GROQ_API_KEY'] = os.getenv('GROQ_API_KEY')
 llm = ChatGroq(model="llama3-8b-8192")
 
 # %%
-nltk.download('stopwords')
+def load_stopwords():
+    try:
+        return set(stopwords.words('portuguese'))
+    except LookupError:
+        nltk.download('stopwords')
+        return set(stopwords.words('portuguese'))
+
+
+stop_words = load_stopwords()
+
 nlp = spacy.load('pt_core_news_sm')
-stop_words = set(stopwords.words('portuguese'))
+
+
 csv_columns = ['product_name', 'site_category_lv2',
                'overall_rating', 'review_text']
 
