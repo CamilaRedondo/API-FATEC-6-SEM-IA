@@ -38,8 +38,7 @@ stop_words = load_stopwords()
 nlp = spacy.load('pt_core_news_sm')
 
 
-csv_columns = ['product_name', 'site_category_lv2',
-               'overall_rating', 'review_text']
+csv_columns = ['product_name', 'site_category_lv1', 'site_category_lv2', 'overall_rating', 'review_text']
 
 # %%
 def clean_text(text):
@@ -47,44 +46,40 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-
 def remove_exclamations_and_periods(text):
     text = re.sub(r'[!.,@]', '', text)
     return text
 
-
 def remove_stop_words(text):
     return ' '.join([word for word in text.split() if word not in stop_words])
-
 
 def remove_accents(text):
     text = unicodedata.normalize('NFD', text)
     text = re.sub(r'[\u0300-\u036f]', '', text)
     return text
 
-
 def format_docs(docs):
     return '\n\n'.join(doc.page_content for doc in docs)
-
 
 # %%
 rows_number = 5000  # Define quantas rows do csv serão utilizadas no RAG
 df = pd.read_csv('../B2W-Reviews.csv')
-df_reduced = df.drop(
-    columns=[col for col in df.columns if col not in csv_columns])
+df_reduced = df.drop(columns=[col for col in df.columns if col not in csv_columns])
+
 for column in csv_columns:
-    df_reduced[column] = df_reduced[column].apply(
-        lambda x: clean_text(str(x)))
-    df_reduced[column] = df_reduced[column].apply(
-        lambda x: remove_exclamations_and_periods(str(x)))
-    df_reduced[column] = df_reduced[column].apply(
-        lambda x: remove_accents(str(x)))
+    df_reduced[column] = df_reduced[column].apply(lambda x: clean_text(str(x)))
+
+    df_reduced[column] = df_reduced[column].apply(lambda x: remove_exclamations_and_periods(str(x)))
     
+    df_reduced[column] = df_reduced[column].apply(lambda x: remove_accents(str(x)))
     
+    df_reduced[column] = df_reduced[column].apply(lambda x: remove_stop_words(str(x)))
+
+df_grouped = df_reduced.groupby('site_category_lv1', as_index=False)
+df_grouped.head(10).to_csv('../out/B2W-Reviews-Grouped.csv', index=False)
+
 result_file_name = f'B2W-Reviews-top{rows_number}.csv'
-new_df = df_reduced.head(rows_number).to_csv(os.path.join
-                                             (dir_management.get_out_dir(),
-                                              result_file_name))
+df_reduced.head(rows_number).to_csv(os.path.join(dir_management.get_out_dir(), result_file_name))
 
 # %%
 loader = CSVLoader(file_path=os.path.join(dir_management.get_out_dir(),
