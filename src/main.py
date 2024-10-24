@@ -36,7 +36,7 @@ stop_words = load_stopwords()
 
 nlp = spacy.load('pt_core_news_sm')
 
-csv_columns = ['product_name', 'site_category_lv2', 'overall_rating', 'review_text']
+csv_columns = ['product_name', 'site_category_lv1', 'site_category_lv2', 'overall_rating', 'review_text']
 
 # %%
 def clean_text(text):
@@ -59,8 +59,17 @@ def remove_accents(text):
 def format_docs(docs):
     return '\n\n'.join(doc.page_content for doc in docs)
 
+def remove_filling_words(text):
+    return ' '.join([word for word in text.split() if word not in ['de', 'a', 'o', 'do', 'da', 'em', 'para', 'com', 'na', 'por', 'uma', 'os', 'no', 'se', 'mas', 'as', 'dos', 'pois', 'né']])
+
+def remove_repetitive_words(text):
+    return re.sub(r'\b(\w+)( \1)+\b', '', text)
+
+def remove_repetitive_letters(text):
+    return re.sub(r'/(.)\1{3,}/g', '', text)
+
 # %%
-rows_number = 2000  # Define quantas rows do csv serão utilizadas no RAG
+rows_number = 5000  # Define quantas rows do csv serão utilizadas no RAG
 df = pd.read_csv('../B2W-Reviews.csv')
 df_reduced = df.drop(columns=[col for col in df.columns if col not in csv_columns])
 
@@ -70,8 +79,12 @@ for column in csv_columns:
     df_reduced[column] = df_reduced[column].apply(lambda x: remove_accents(str(x)))
     df_reduced[column] = df_reduced[column].apply(lambda x: remove_stop_words(str(x)))
 
+df_reduced["review_text"] = df_reduced["review_text"].apply(lambda x: remove_filling_words(str(x)))
+df_reduced["review_text"] = df_reduced["review_text"].apply(lambda x: remove_repetitive_words(str(x)))
+df_reduced["review_text"] = df_reduced["review_text"].apply(lambda x: remove_repetitive_letters(str(x)))
+
 result_file_name = f'B2W-Reviews-top{rows_number}.csv'
-df_reduced.head(rows_number).to_csv(os.path.join(dir_management.get_out_dir(), result_file_name))
+df_reduced.head(rows_number).sort_values('site_category_lv1').to_csv(os.path.join(dir_management.get_out_dir(), result_file_name))
 
 # %%
 loader = CSVLoader(
@@ -145,7 +158,7 @@ response = run_rag_chain('Me fale sobre o clima de amanhã.')
 print(response)
 
 # %%
-response = run_rag_chain('Me fale sobre o produto notebook asus vivobook')
+response = run_rag_chain('Me fale recomende produtos de informatica')
 print(response)
 
 # %%
