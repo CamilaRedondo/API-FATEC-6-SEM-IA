@@ -1,6 +1,4 @@
 # %%
-import csv
-import sys
 import os
 import re
 import spacy
@@ -17,8 +15,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.output_parsers import StrOutputParser
 from langchain_chroma import Chroma
 from util import dir_management
-
-csv.field_size_limit(sys.maxsize)
 
 # %%
 load_dotenv()
@@ -40,8 +36,7 @@ stop_words = load_stopwords()
 
 nlp = spacy.load('pt_core_news_sm')
 
-
-csv_columns = ['product_name', 'site_category_lv1', 'site_category_lv2', 'overall_rating', 'review_text']
+csv_columns = ['product_name', 'site_category_lv2', 'overall_rating', 'review_text']
 
 # %%
 def clean_text(text):
@@ -65,30 +60,22 @@ def format_docs(docs):
     return '\n\n'.join(doc.page_content for doc in docs)
 
 # %%
-rows_number = 5000  # Define quantas rows do csv serão utilizadas no RAG
+rows_number = 2000  # Define quantas rows do csv serão utilizadas no RAG
 df = pd.read_csv('../B2W-Reviews.csv')
 df_reduced = df.drop(columns=[col for col in df.columns if col not in csv_columns])
 
 for column in csv_columns:
     df_reduced[column] = df_reduced[column].apply(lambda x: clean_text(str(x)))
-
     df_reduced[column] = df_reduced[column].apply(lambda x: remove_exclamations_and_periods(str(x)))
-    
     df_reduced[column] = df_reduced[column].apply(lambda x: remove_accents(str(x)))
-    
     df_reduced[column] = df_reduced[column].apply(lambda x: remove_stop_words(str(x)))
 
 result_file_name = f'B2W-Reviews-top{rows_number}.csv'
 df_reduced.head(rows_number).to_csv(os.path.join(dir_management.get_out_dir(), result_file_name))
 
-grouped_file_name = f'B2W-Reviews-Grouped{rows_number}.csv'
-# df_grouped = df_reduced.groupby('site_category_lv1').agg(lambda x: list(x)).reset_index()
-df_grouped = df_reduced.groupby(['site_category_lv1']).apply(lambda x: x.to_dict(orient='records')).reset_index()
-df_grouped.reset_index().to_csv(os.path.join(dir_management.get_out_dir(), grouped_file_name))
-
 # %%
 loader = CSVLoader(
-    file_path=os.path.join(dir_management.get_out_dir(), grouped_file_name),
+    file_path=os.path.join(dir_management.get_out_dir(), result_file_name),
     encoding='utf-8',
     csv_args={
         'delimiter': ',',
@@ -112,8 +99,8 @@ hf = HuggingFaceEmbeddings(
     model_kwargs=model_kwargs,
     encode_kwargs=encode_kwargs
 )
-vectorstore = Chroma.from_documents(
-    documents=splits, embedding=hf)
+
+vectorstore = Chroma.from_documents(documents=docs, embedding=hf)
 
 retriever = vectorstore.as_retriever()
 
@@ -158,7 +145,7 @@ response = run_rag_chain('Me fale sobre o clima de amanhã.')
 print(response)
 
 # %%
-response = run_rag_chain('Me fale sobre o produto com o nome espremedor laranja')
+response = run_rag_chain('Me fale sobre o produto notebook asus vivobook')
 print(response)
 
 # %%
