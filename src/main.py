@@ -1,4 +1,6 @@
 # %%
+import csv
+import sys
 import os
 import re
 import spacy
@@ -12,10 +14,11 @@ from langchain_community.document_loaders import CSVLoader
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_chroma import Chroma
 from util import dir_management
+
+csv.field_size_limit(sys.maxsize)
 
 # %%
 load_dotenv()
@@ -75,31 +78,35 @@ for column in csv_columns:
     
     df_reduced[column] = df_reduced[column].apply(lambda x: remove_stop_words(str(x)))
 
-df_grouped = df_reduced.groupby('site_category_lv1', as_index=False)
-df_grouped.head(10).to_csv('../out/B2W-Reviews-Grouped.csv', index=False)
-
 result_file_name = f'B2W-Reviews-top{rows_number}.csv'
 df_reduced.head(rows_number).to_csv(os.path.join(dir_management.get_out_dir(), result_file_name))
 
+grouped_file_name = f'B2W-Reviews-Grouped{rows_number}.csv'
+# df_grouped = df_reduced.groupby('site_category_lv1').agg(lambda x: list(x)).reset_index()
+df_grouped = df_reduced.groupby(['site_category_lv1']).apply(lambda x: x.to_dict(orient='records')).reset_index()
+df_grouped.reset_index().to_csv(os.path.join(dir_management.get_out_dir(), grouped_file_name))
+
 # %%
-loader = CSVLoader(file_path=os.path.join(dir_management.get_out_dir(),
-                                          result_file_name),
-                   encoding='utf-8',
-                   csv_args={
-                       'delimiter': ',',
-                       'quotechar': '"',
-                       'fieldnames': csv_columns
-})
+loader = CSVLoader(
+    file_path=os.path.join(dir_management.get_out_dir(), grouped_file_name),
+    encoding='utf-8',
+    csv_args={
+        'delimiter': ',',
+        'quotechar': '"',
+        'fieldnames': csv_columns
+    }
+)
 
 docs = loader.load()
 
 # %%
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000, chunk_overlap=200)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 splits = text_splitter.split_documents(docs)
+
 model_name = 'sentence-transformers/all-MiniLM-L6-v2'
-model_kwargs = {'device': 'cpu'}
-encode_kwargs = {'normalize_embeddings': False}
+model_kwargs = { 'device': 'cpu' }
+encode_kwargs = { 'normalize_embeddings': False }
+
 hf = HuggingFaceEmbeddings(
     model_name=model_name,
     model_kwargs=model_kwargs,
@@ -151,11 +158,11 @@ response = run_rag_chain('Me fale sobre o clima de amanhã.')
 print(response)
 
 # %%
-response = run_rag_chain('Me fale sobre o Samsung Galaxy S24')
+response = run_rag_chain('Me fale sobre o produto com o nome espremedor laranja')
 print(response)
 
 # %%
-response = run_rag_chain ("Pode me indicar bons smartphones?")
+response = run_rag_chain ("Como podemos melhorar a experiência do cliente com base nas avaliações recebidas?")
 print(response)                    
 
 # %% [markdown]
