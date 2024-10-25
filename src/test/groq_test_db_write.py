@@ -1,5 +1,4 @@
 # %%
-
 from langchain_community.document_loaders import CSVLoader
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -10,7 +9,6 @@ import os
 from dotenv import load_dotenv
 
 # %%
-
 load_dotenv()
 os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGCHAIN_TRACING_V2")
 os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
@@ -19,16 +17,15 @@ os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 llm = ChatGroq(model="llama3-8b-8192")
 
 # %%
-df = pd.read_csv(r'C:\Projetos\b2w-reviews01\B2W-Reviews01.csv')
+df = pd.read_csv(
+    r'C:\Projetos\b2w-reviews01\B2W-Reviews01.csv', low_memory=False)
 columns_to_keep = ['product_name', 'review_title', 'review_text']
-df_reduced = df.drop(
-    columns=[col for col in df.columns if col not in columns_to_keep])
-new_df = df_reduced.head(1000).to_csv(
-    r'C:\Projetos\b2w-reviews01\B2W-Reviews-top10.csv')
+df_reduced = df[columns_to_keep]
+df_reduced.to_csv(
+    r'C:\Projetos\Testes_IA\API-FATEC-6-SEM-IA\out\B2W-Reviews-top10.csv')
 
 # %%
-
-loader = CSVLoader(file_path=r'C:\Projetos\b2w-reviews01\B2W-Reviews-top10.csv',
+loader = CSVLoader(file_path=r'C:\Projetos\Testes_IA\API-FATEC-6-SEM-IA\out\B2W-Reviews-top10.csv',
                    encoding='utf-8',
                    csv_args={
                        'delimiter': ',',
@@ -41,6 +38,7 @@ docs = loader.load()
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000, chunk_overlap=200)
 splits = text_splitter.split_documents(docs)
+
 model_name = "sentence-transformers/all-MiniLM-L6-v2"
 model_kwargs = {'device': 'cpu'}
 encode_kwargs = {'normalize_embeddings': False}
@@ -50,13 +48,24 @@ hf = HuggingFaceEmbeddings(
     encode_kwargs=encode_kwargs
 )
 
-Chroma.from_documents(
-    documents=splits,
-    embedding=hf,
+max_batch_size = 3000
+
+
+def batch_documents(documents, batch_size):
+    for i in range(0, len(documents), batch_size):
+        yield documents[i:i + batch_size]
+
+
+vectorstore = Chroma(
+    embedding_function=hf,
     collection_name='reviews',
-    persist_directory=r'..\chroma_db'
+    persist_directory=r'C:\Projetos\Testes_IA\API-FATEC-6-SEM-IA\chroma_db'
 )
 
-# retriever = vectorstore.as_retriever()
+for batch in batch_documents(splits, max_batch_size):
+    vectorstore.add_texts(
+        texts=[doc.page_content for doc in batch],
+        metadatas=[doc.metadata for doc in batch]
+    )
 
 # %%
