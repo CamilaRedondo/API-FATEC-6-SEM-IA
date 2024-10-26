@@ -10,3 +10,10 @@ def get_out_dir():
         os.makedirs(out_path)
 
     return out_path
+
+
+def get_project_dir():
+    file_path = os.path.realpath(__file__)
+    project_path = os.path.dirname(os.path.dirname(os.path.dirname(
+        file_path)))
+    return project_path
