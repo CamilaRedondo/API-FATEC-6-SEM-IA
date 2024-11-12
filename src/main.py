@@ -11,9 +11,9 @@ from langchain_community.document_loaders import CSVLoader
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_core.output_parsers import StrOutputParser
 from langchain_chroma import Chroma
 from util import dir_management
+import classes.chat_handler as chat_handler
 
 # %%
 load_dotenv()
@@ -112,8 +112,7 @@ df_reduced["review_text"] = df_reduced["review_text"].apply(
     lambda x: remove_repetitive_letters(str(x)))
 
 result_file_name = f'B2W-Reviews-After-PLN.csv'
-df_reduced.sort_values('site_category_lv1').to_csv(
-    os.path.join(dir_management.get_out_dir(), result_file_name))
+df_reduced.sort_values('site_category_lv1').to_csv(os.path.join(dir_management.get_out_dir(), result_file_name), index=False)
 
 # %%
 loader = CSVLoader(
@@ -189,36 +188,37 @@ def custom_prompt(context, question):
 
 # RAG Chain com prompt customizado
 
-
 def run_rag_chain(question):
-    # Recupera documentos e formata o contexto
-    retrieved_docs = retriever.invoke(question)  # aumentar para k=10 para ver o resultado 
-    formatted_context = format_docs(retrieved_docs)
+    # # Recupera documentos e formata o contexto
+    # retrieved_docs = retriever.invoke(question)  # aumentar para k=10 para ver o resultado 
+    # formatted_context = format_docs(retrieved_docs)
 
-    # Cria o prompt customizado
-    full_prompt = custom_prompt(formatted_context, question)
+    # # Cria o prompt customizado
+    # full_prompt = custom_prompt(formatted_context, question)
 
-    # Passa o prompt para o modelo de linguagem
-    response = llm.invoke(full_prompt)
+    # # Passa o prompt para o modelo de linguagem
+    # response = llm.invoke(full_prompt)
 
-    # Parseia a resposta para o formato correto
-    parsed_response = StrOutputParser().parse(response)
+    # # Parseia a resposta para o formato correto
+    # parsed_response = StrOutputParser().parse(response)
 
-    return parsed_response.content
+    # return parsed_response.content
+
+    return chat_handler.ask(question=question, retriever=retriever, llm=llm)
 
 
-# %%
-response = run_rag_chain('Me fale sobre o clima de amanhã.')
-print(response)
+# # %%
+# response = run_rag_chain('Me fale sobre o clima de amanhã.')
+# print(response)
 
-# %%
-response = run_rag_chain('Me fale recomende produtos de informatica')
-print(response)
+# # %%
+# response = run_rag_chain('Me fale recomende produtos de informatica')
+# print(response)
 
-# %%
-response = run_rag_chain(
-    "Como podemos melhorar a experiência do cliente com base nas avaliações recebidas?")
-print(response)
+# # %%
+# response = run_rag_chain(
+#     "Como podemos melhorar a experiência do cliente com base nas avaliações recebidas?")
+# print(response)
 
 # %% [markdown]
 # perguntas para marketing:
