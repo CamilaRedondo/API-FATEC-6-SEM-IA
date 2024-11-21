@@ -1,12 +1,12 @@
 import asyncio
 import websockets
-from main import run_rag_chain  
+from services import retriever_service
 
 async def handler(websocket):
     while True:
         try:
             question = await websocket.recv()
-            response = run_rag_chain(question)
+            response = retriever_service.run_rag_chain(question)
             if websocket.open:
                 await websocket.send(response)
         except websockets.exceptions.ConnectionClosed:

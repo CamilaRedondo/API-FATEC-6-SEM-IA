@@ -12,7 +12,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from util import dir_management
-import classes.chat_handler as chat_handler
 
 
 load_dotenv()
@@ -20,12 +19,13 @@ os.environ['LANGCHAIN_TRACING_V2'] = os.getenv('LANGCHAIN_TRACING_V2')
 os.environ['LANGCHAIN_API_KEY'] = os.getenv('LANGCHAIN_API_KEY')
 os.environ['GROQ_API_KEY'] = os.getenv('GROQ_API_KEY')
 llm = ChatGroq(
-    model="llama3-8b-8192", 
+    model="llama3-8b-8192",
     temperature=0.2,
-    model_kwargs={ 
+    model_kwargs={
         "top_p": 0.85,
-        }#Respostas diretas e focadas, mas menos criativas
+    }  # Respostas diretas e focadas, mas menos criativas
 )
+
 
 def load_stopwords():
     try:
@@ -112,7 +112,7 @@ df_reduced["review_text"] = df_reduced["review_text"].apply(
 
 result_file_name = f'B2W-Reviews-After-PLN.csv'
 df_reduced.sort_values('site_category_lv1').to_csv(
-    os.path.join(dir_management.get_out_dir(), result_file_name), index= False)
+    os.path.join(dir_management.get_out_dir(), result_file_name), index=False)
 
 loader = CSVLoader(
     file_path=os.path.join(dir_management.get_out_dir(), result_file_name),
@@ -141,7 +141,7 @@ hf = HuggingFaceEmbeddings(
 
 max_batch_size = 3000
 vector_db_path = os.path.join(dir_management.get_project_dir(), 'chroma_db')
-if  not os.path.exists(vector_db_path):
+if not os.path.exists(vector_db_path):
     vectorstore = Chroma(
         embedding_function=hf,
         collection_name='reviews',
@@ -160,56 +160,3 @@ else:
         collection_name='reviews',
         persist_directory=vector_db_path
     )
-
-retriever = vectorstore.as_retriever()
-
-prompt_template = """
-
-Responda em português do Brasil.Responda com clareza e objetividade.
-Você é um assistente especializado em marketing e feedback de clientes. Responda apenas a perguntas relacionadas a marketing, campanhas, avaliações de clientes e produtos.
-Para perguntas sobre produtos, use apenas o feedback dos clientes fornecido no contexto para responder, não invente respostas.
-Para perguntas do tipo saudações, responda amigavelmente.  
-Se a pergunta estiver fora do escopo, responda: "Essa pergunta está fora do escopo deste chatbot. Por favor, faça perguntas relacionadas a marketing ou reformule a pergunta."
-
-
-Contexto: {context}
-Pergunta: {question}
-
-Resposta (use dados específicos para apoiar sua resposta):
-
-"""
-
-def custom_prompt(context, question):
-    return prompt_template.format(context=context, question=question)
-
-def preprocess_question(question):
-    synonyms = {
-                'celular': 'smartphone', 
-                'celulares': 'smartphones', 
-                'telefone': 'smartphone', 
-                'telefones': 'smartphones', 
-                }
-    for word, synonym in synonyms.items():
-        question = question.replace(word, synonym)
-    return question.lower()
-
-def run_rag_chain(question):
-
-    question = preprocess_question(question)
-
-    # Recupera documentos e formata o contexto
-    # retrieved_docs = retriever.invoke(question)  # aumentar para k=10 para ver o resultado 
-    # formatted_context = format_docs(retrieved_docs)
-
-    # # Cria o prompt customizado
-    # full_prompt = custom_prompt(formatted_context, question)
-
-    # # Passa o prompt para o modelo de linguagem
-    # response = llm.invoke(full_prompt)
-
-    # # Parseia a resposta para o formato correto
-    # parsed_response = StrOutputParser().parse(response)
-
-    # return parsed_response.content
-
-    return chat_handler.ask(question=question, retriever=retriever, llm=llm)
