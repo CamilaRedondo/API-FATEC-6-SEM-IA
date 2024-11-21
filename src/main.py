@@ -1,4 +1,3 @@
-# %%
 import os
 import re
 import spacy
@@ -15,15 +14,18 @@ from langchain_chroma import Chroma
 from util import dir_management
 import classes.chat_handler as chat_handler
 
-# %%
+
 load_dotenv()
 os.environ['LANGCHAIN_TRACING_V2'] = os.getenv('LANGCHAIN_TRACING_V2')
 os.environ['LANGCHAIN_API_KEY'] = os.getenv('LANGCHAIN_API_KEY')
 os.environ['GROQ_API_KEY'] = os.getenv('GROQ_API_KEY')
-llm = ChatGroq(model="llama3-8b-8192")
-
-# %%
-
+llm = ChatGroq(
+    model="llama3-8b-8192", 
+    temperature=0.2,
+    model_kwargs={ 
+        "top_p": 0.85,
+        }#Respostas diretas e focadas, mas menos criativas
+)
 
 def load_stopwords():
     try:
@@ -39,8 +41,6 @@ nlp = spacy.load('pt_core_news_sm')
 
 csv_columns = ['product_name', 'site_category_lv1',
                'site_category_lv2', 'overall_rating', 'review_text']
-
-# %%
 
 
 def clean_text(text):
@@ -89,7 +89,6 @@ def batch_documents(documents, batch_size):
         yield documents[i:i + batch_size]
 
 
-# %%
 df = pd.read_csv(os.path.join(
     dir_management.get_project_dir(), 'B2W-Reviews.csv'))
 df_reduced = df.drop(
@@ -112,9 +111,9 @@ df_reduced["review_text"] = df_reduced["review_text"].apply(
     lambda x: remove_repetitive_letters(str(x)))
 
 result_file_name = f'B2W-Reviews-After-PLN.csv'
-df_reduced.sort_values('site_category_lv1').to_csv(os.path.join(dir_management.get_out_dir(), result_file_name), index=False)
+df_reduced.sort_values('site_category_lv1').to_csv(
+    os.path.join(dir_management.get_out_dir(), result_file_name), index= False)
 
-# %%
 loader = CSVLoader(
     file_path=os.path.join(dir_management.get_out_dir(), result_file_name),
     encoding='utf-8',
@@ -127,7 +126,6 @@ loader = CSVLoader(
 
 docs = loader.load()
 
-# %%
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000, chunk_overlap=200)
 splits = text_splitter.split_documents(docs)
@@ -165,31 +163,41 @@ else:
 
 retriever = vectorstore.as_retriever()
 
-# %%
 prompt_template = """
 
-Responda sempre de forma clara e precisa em português do Brasil.
-Você é um assistente especializado em marketing e feedback de clientes. Responda perguntas que estejam relacionadas a marketing, campanhas, review de clientes, avaliações de produtos ou publicidade. 
-Para perguntas fora desse escopo, responda: "Essa pergunta está fora do escopo deste chatbot. Por favor, faça perguntas relacionadas a marketing."
-Para perguntas sobre produtos, use apenas o feedback dos clientes fornecido no contexto para responder, não invente respostas. Se o contexto não tiver informações suficientes, responda: "Não há informações suficientes para responder a essa pergunta."
+Responda em português do Brasil.Responda com clareza e objetividade.
+Você é um assistente especializado em marketing e feedback de clientes. Responda apenas a perguntas relacionadas a marketing, campanhas, avaliações de clientes e produtos.
+Para perguntas sobre produtos, use apenas o feedback dos clientes fornecido no contexto para responder, não invente respostas.
+Para perguntas do tipo saudações, responda amigavelmente.  
+Se a pergunta estiver fora do escopo, responda: "Essa pergunta está fora do escopo deste chatbot. Por favor, faça perguntas relacionadas a marketing ou reformule a pergunta."
+
 
 Contexto: {context}
 Pergunta: {question}
 
-Resposta:
+Resposta (use dados específicos para apoiar sua resposta):
 
 """
-
-# %%
-
 
 def custom_prompt(context, question):
     return prompt_template.format(context=context, question=question)
 
-# RAG Chain com prompt customizado
+def preprocess_question(question):
+    synonyms = {
+                'celular': 'smartphone', 
+                'celulares': 'smartphones', 
+                'telefone': 'smartphone', 
+                'telefones': 'smartphones', 
+                }
+    for word, synonym in synonyms.items():
+        question = question.replace(word, synonym)
+    return question.lower()
 
 def run_rag_chain(question):
-    # # Recupera documentos e formata o contexto
+
+    question = preprocess_question(question)
+
+    # Recupera documentos e formata o contexto
     # retrieved_docs = retriever.invoke(question)  # aumentar para k=10 para ver o resultado 
     # formatted_context = format_docs(retrieved_docs)
 
@@ -205,64 +213,3 @@ def run_rag_chain(question):
     # return parsed_response.content
 
     return chat_handler.ask(question=question, retriever=retriever, llm=llm)
-
-
-# # %%
-# response = run_rag_chain('Me fale sobre o clima de amanhã.')
-# print(response)
-
-# # %%
-# response = run_rag_chain('Me fale recomende produtos de informatica')
-# print(response)
-
-# # %%
-# response = run_rag_chain(
-#     "Como podemos melhorar a experiência do cliente com base nas avaliações recebidas?")
-# print(response)
-
-# %% [markdown]
-# perguntas para marketing:
-#
-# Quais são os principais pontos de satisfação mencionados pelos clientes em suas avaliações?
-# Quais são os principais motivos de insatisfação dos clientes sobre os produtos?
-# Existe alguma tendência nos feedbacks que indica um aumento ou diminuição da satisfação do cliente?
-#
-# Quais características dos produtos são mais frequentemente elogiadas pelos clientes?
-# Como os produto se comparam a concorrentes nas avaliações dos clientes?
-# Quais produtos têm recebido as melhores e as piores avaliações, e por quê?
-#
-# Com base nos feedbacks, que ações de marketing podemos implementar para melhorar a percepção da marca?
-# Quais campanhas anteriores parecem ter gerado mais impacto positivo, de acordo com as avaliações?
-# Como podemos usar os feedbacks dos clientes para criar uma nova campanha de marketing?
-#
-# Existem padrões nas avaliações que indicam diferentes preferências entre diferentes grupos de clientes (por exemplo, idade, gênero, localização)?
-# Que tipo de clientes estão mais satisfeitos com nosso produto e por quê?
-#
-# Quais tendências recentes podem ser observadas nos feedbacks que poderiam impactar nossas estratégias de marketing futuras?
-# O que os clientes estão buscando atualmente que pode não estar sendo atendido pelos nossos produtos?
-#
-# Como podemos melhorar a experiência do cliente com base nas avaliações recebidas?
-# Quais atributos dos produtos mais impactam a decisão de compra, de acordo com as opiniões dos clientes?
-# Os clientes recomendariam o nosso produto a um amigo? Qual é a porcentagem de respostas positivas?
-#
-# Qual o produto mais bem avaliado pelos clientes ?
-# Recomendações para melhorar a satisfação do cliente?
-# Qual é o feedback positivos dos clientes sobre os produtos?
-
-# %% [markdown]
-# s campanhas anteriores parecem ter gerado mais impacto positivo, de acordo com as avaliações?
-# Como podemos usar os feedbacks dos clientes para criar uma nova campanha de marketing?
-#
-# Existem padrões nas avaliações que indicam diferentes preferências entre diferentes grupos de clientes (por exemplo, idade, gênero, localização)?
-# Que tipo de clientes estão mais satisfeitos com nosso produto e por quê?
-#
-# Quais tendências recentes podem ser observadas nos feedbacks que poderiam impactar nossas estratégias de marketing futuras?
-# O que os clientes estão buscando atualmente que pode não estar sendo atendido pelos nossos produtos?
-#
-# Como podemos melhorar a experiência do cliente com base nas avaliações recebidas?
-# Quais atributos dos produtos mais impactam a decisão de compra, de acordo com as opiniões dos clientes?
-# Os clientes recomendariam o nosso produto a um amigo? Qual é a porcentagem de respostas positivas?
-#
-# Qual o produto mais bem avaliado pelos clientes ?
-# Recomendações para melhorar a satisfação do cliente?
-# Qual é o feedback positivos dos clientes sobre os produtos?
