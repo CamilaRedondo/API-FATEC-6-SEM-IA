@@ -1,5 +1,7 @@
 venv
 out
+logs
+backup
 chroma_db
 
 # Python
