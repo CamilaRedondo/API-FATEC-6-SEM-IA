@@ -11,3 +11,8 @@
 - pip install datasets spacy textblob nltk
 - python -m spacy download pt_core_news_sm
 
+## Arquivo data_processing_startup.py:
+Realiza o tratamento de dados e o processamento de linguagem natural para persistência em banco vetorial, o qual é resultado do processo na raiz do projeto como ./chroma_db.
+
+## Arquivo server_startup.py:
+Levanta a instância que permite a comunicação via websocket com o charbot.
