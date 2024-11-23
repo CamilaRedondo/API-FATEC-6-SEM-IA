@@ -1,6 +1,11 @@
+import os
 import asyncio
 import websockets
+import logging
+from util import dir_management
 from services import retriever_service
+from logging.handlers import RotatingFileHandler
+
 
 async def handler(websocket):
     while True:
@@ -19,13 +24,22 @@ async def handler(websocket):
 
 
 async def main():
-    # Inicia o servidor WebSocket
     server = await websockets.serve(handler, "localhost", 8081)
-    print("Servidor WebSocket rodando...")  
+    print("Servidor WebSocket rodando...")
 
-    # Mantém o servidor rodando 
     await server.wait_closed()
 
-# Executa a função main
-asyncio.run(main())
+if __name__ == '__main__':
+    log_file = os.path.join(
+        dir_management.get_logs_dir('server'), 'log.txt')
+    log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    log_handler = RotatingFileHandler(
+        log_file, mode='a', maxBytes=500*1024*1024, backupCount=3, encoding=None, delay=0)
+    log_handler.setFormatter(log_formatter)
+    log_handler.setLevel(logging.INFO)
+    app_log = logging.getLogger()
+    app_log.setLevel(logging.INFO)
+    app_log.addHandler(log_handler)
 
+    logging.info('Start server')
+    asyncio.run(main())
